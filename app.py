@@ -331,8 +331,13 @@ def export_csv():
         download_name=filename
     )
 
+# 1. Gunicorn gibi canlı sunucularda çalışırken veritabanı kurulduğundan emin ol
+with app.app_context():
+    try:
+        init_db()
+    except Exception as e:
+        print("Veritabanı başlatma hatası:", e)
+
 if __name__ == '__main__':
-    # 1. Başlarken veritabanı kurulum mekanizmasını tetikle
-    init_db()
-    # 2. Flask'i başlat
+    # 2. Flask'i başlat (Sadece lokal test için)
     app.run(debug=True)
