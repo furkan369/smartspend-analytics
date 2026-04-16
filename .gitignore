@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+env/
+venv/
+.env
+
+# Veritabanı
+*.db
+*.sqlite
+*.sqlite3
+expenses.db
+
+# VS Code / OS
+.vscode/
+.DS_Store
+Thumbs.db

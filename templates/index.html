@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartSpend Analytics</title>
+    <!-- Bootstrap 5 CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { 
+            background-color: #f4f6f9; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .card { 
+            border: none; 
+            border-radius: 12px; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.06); 
+        }
+        .card-header { 
+            background-color: white; 
+            border-bottom: 2px solid #f8f9fa; 
+            border-radius: 12px 12px 0 0 !important; 
+            font-weight: 700; 
+        }
+        .stat-card { 
+            transition: all 0.3s ease; 
+        }
+        .stat-card:hover { 
+            transform: translateY(-5px); 
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .img-chart {
+            object-fit: contain;
+            width: 100%;
+            height: auto;
+            max-height: 380px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-5">
+        <!-- Logo ve Başlık -->
+        <!-- Logo, Başlık ve Ay Filtresi -->
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-5 border-bottom pb-4">
+            <div class="mb-3 mb-md-0 text-center text-md-start">
+                <h1 class="display-6 fw-bold text-primary mb-1">SmartSpend Analytics</h1>
+                <p class="text-secondary mb-0">Kişisel Bütçe ve Harcama Takibi Sistemi</p>
+            </div>
+            
+            <!-- Ay Seçimi -->
+            <form action="/" method="GET" class="d-flex align-items-center">
+                <label for="month" class="fw-semibold text-muted me-2 text-nowrap">Dönem Seç:</label>
+                <select name="month" id="month" class="form-select form-select-lg shadow-sm font-monospace border-primary" onchange="this.form.submit()" style="min-width: 220px; cursor:pointer;">
+                    <option value="ALL" {% if selected_month == 'ALL' %}selected{% endif %}>Tüm Zamanlar</option>
+                    {% for m in available_months %}
+                        <option value="{{ m.value }}" {% if selected_month == m.value %}selected{% endif %}>{{ m.label }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+
+        <!-- Hata ve Başarı Uyarıları (Flask Flash Messages) -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="row justify-content-center mb-4">
+                    <div class="col-lg-8">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                            <strong>Bilgi:</strong> {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- TEPE İSTATİSTİK KARTLARI -->
+        <div class="row g-4 mb-5">
+            <!-- Toplam Harcama -->
+            <div class="col-md-4">
+                <div class="card stat-card h-100 p-4 border-start border-4 border-primary">
+                    <h6 class="text-muted text-uppercase mb-2">Toplam Harcama</h6>
+                    <h2 class="fw-bold mb-0">{{ total_spent }} ₺</h2>
+                </div>
+            </div>
+            <!-- En Çok Harcanan Kategori -->
+            <div class="col-md-4">
+                <div class="card stat-card h-100 p-4 border-start border-4 border-warning">
+                    <h6 class="text-muted text-uppercase mb-2">En Pahalı Kategori</h6>
+                    <h2 class="fw-bold mb-0">{{ top_category }}</h2>
+                </div>
+            </div>
+            <!-- İşlem ve Günlük Ortalama -->
+            <div class="col-md-4">
+                <div class="card stat-card h-100 p-4 border-start border-4 border-success">
+                    <div class="d-flex justify-content-between align-items-center mb-0 mt-2">
+                        <div>
+                            <h6 class="text-muted text-uppercase mb-2" style="font-size: 0.8rem;">Günlük Ortalama</h6>
+                            <h4 class="fw-bold mb-0 text-success">{{ daily_avg }} ₺</h4>
+                        </div>
+                        <div class="text-end">
+                            <h6 class="text-muted text-uppercase mb-2" style="font-size: 0.8rem;">Toplam İşlem</h6>
+                            <h4 class="fw-bold mb-0 text-secondary">{{ transaction_count }} Adet</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mb-5">
+            <!-- SOL FORM: Yeni Kayıt Girişi -->
+            <div class="col-lg-4">
+                <div class="card h-100">
+                    <div class="card-header py-3">
+                        <h5 class="mb-0 text-dark">Yeni Harcama Ekle</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <form action="/add" method="POST" class="needs-validation">
+                            <div class="mb-3">
+                                <label for="amount" class="form-label fw-semibold">Miktar (₺)</label>
+                                <input type="number" step="0.01" class="form-control" id="amount" name="amount" min="0.01" required placeholder="Örn: 250.50">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="category" class="form-label fw-semibold">Kategori</label>
+                                <select class="form-select" id="category" name="category" required>
+                                    <option value="" selected disabled>Seçiniz...</option>
+                                    <option value="Yemek">Yemek</option>
+                                    <option value="Ulaşım">Ulaşım</option>
+                                    <option value="Eğitim">Eğitim</option>
+                                    <option value="Yakıt">Yakıt</option>
+                                    <option value="Eğlence">Eğlence</option>
+                                    <option value="Diğer">Diğer</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="date" class="form-label fw-semibold">Tarih</label>
+                                <input type="date" class="form-control" id="date" name="date" required>
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="description" class="form-label fw-semibold">Kısa Açıklama <span class="text-muted fw-normal">(İsteğe Bağlı)</span></label>
+                                <textarea class="form-control" id="description" name="description" rows="2" placeholder="Harcama detayları..."></textarea>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary w-100 py-2 fw-bold shadow-sm">
+                                Ekle
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SAĞ GRAFİK: Matplotlib Görselleri (Sekmeli Yapı) -->
+            <div class="col-lg-8">
+                <div class="card h-100">
+                    <div class="card-header py-3 pt-4">
+                        <ul class="nav nav-tabs card-header-tabs" id="chartTabs" role="tablist">
+                            <li class="nav-item">
+                                <a class="nav-link active fw-bold text-dark" id="bar-tab" data-bs-toggle="tab" href="#bar" role="tab">Trend (Sütun)</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link fw-bold text-dark" id="pie-tab" data-bs-toggle="tab" href="#pie" role="tab">Kategori (Pasta)</a>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="tab-content" id="chartTabsContent">
+                            <!-- Sütun Grafiği -->
+                            <div class="tab-pane fade show active d-flex justify-content-center" id="bar" role="tabpanel">
+                                {% if bar_plot_url %}
+                                    <img src="data:image/png;base64,{{ bar_plot_url }}" alt="Sütun Grafiği" class="img-fluid" style="object-fit: contain; max-height: 400px; width: 100%;">
+                                {% else %}
+                                    <div class="text-center p-5">
+                                        <p class="text-muted display-6 mb-3">📭</p>
+                                        <h6 class="text-secondary text-uppercase">Çizilecek Veri Yok</h6>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Pasta Grafiği -->
+                            <div class="tab-pane fade d-flex justify-content-center" id="pie" role="tabpanel">
+                                {% if plot_url %}
+                                    <img src="data:image/png;base64,{{ plot_url }}" alt="Pasta Grafiği" class="img-chart">
+                                {% else %}
+                                    <div class="text-center p-5">
+                                        <p class="text-muted display-6 mb-3">📭</p>
+                                        <h6 class="text-secondary text-uppercase">Çizilecek Veri Yok</h6>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABLO ALANI -->
+        <div class="card">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center bg-white">
+                <h5 class="mb-0 text-dark">Geçmiş Hareketler</h5>
+                <a href="/export?month={{ selected_month }}" class="btn btn-outline-success btn-sm fw-bold px-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-file-earmark-excel me-1 mb-1" viewBox="0 0 16 16">
+                        <path d="M5.884 6.68a.5.5 0 1 0-.768.64L7.349 10l-2.233 2.68a.5.5 0 0 0 .768.64L8 10.781l2.116 2.54a.5.5 0 0 0 .768-.641L8.651 10l2.233-2.68a.5.5 0 0 0-.768-.64L8 9.219l-2.116-2.54z"/>
+                        <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
+                    </svg>CSV Ortamına İndir (Seçili Dönem)
+                </a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col" class="ps-4">Tarih</th>
+                                <th scope="col">Kategori</th>
+                                <th scope="col">Kısa Açıklama</th>
+                                <th scope="col" class="text-end">Miktar</th>
+                                <th scope="col" class="text-end pe-4">İşlem</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in expenses %}
+                            <tr>
+                                <td class="ps-4 text-secondary">{{ record.date }}</td>
+                                <td><span class="badge bg-secondary px-2 py-1">{{ record.category }}</span></td>
+                                <td>{{ record.description }}</td>
+                                <td class="text-end fw-semibold text-dark">{{ record.amount }} ₺</td>
+                                <td class="text-end pe-4">
+                                    <form action="/delete/{{ record.id }}" method="POST" class="d-inline" onsubmit="return confirm('Bu harcamayı gerçekten silmek istiyor musunuz?');">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Sil</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center py-5 text-muted">
+                                    Listeniz bomboş! Soldaki panelden harcama ekleyebilirsiniz.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Sayfa yüklendiğinde günün tarihini otomatik inputa yerleştirir
+        document.addEventListener('DOMContentLoaded', () => {
+            const dateInput = document.getElementById('date');
+            if(!dateInput.value) {
+                // Türkiye saatine uygun bugünü almak için kısa yöntem
+                const myDate = new Date();
+                const offset = myDate.getTimezoneOffset()
+                myDate.setMinutes(myDate.getMinutes() - offset)
+                dateInput.value = myDate.toISOString().split('T')[0];
+            }
+        });
+    </script>
+</body>
+</html>
