@@ -7,10 +7,10 @@ venv/
 .env
 
 # Veritabanı
-*.db
-*.sqlite
-*.sqlite3
-expenses.db
+# *.db
+# *.sqlite
+# *.sqlite3
+# expenses.db
 
 # VS Code / OS
 .vscode/
